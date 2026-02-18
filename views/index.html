@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Mini Profile App</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <h1>Mini Profile + Photo Uploader</h1>
+    <p>
+      This demo saves profile data to <b>Cosmos DB</b> and images to
+      <b>Blob Storage</b>.
+    </p>
+
+    <div class="card">
+      <h2>Create Profile</h2>
+
+      <form id="profileForm">
+        <label>Name</label>
+        <input name="name" required />
+
+        <label>Age</label>
+        <input name="age" type="number" min="0" required />
+
+        <label>Bio</label>
+        <textarea name="bio" rows="4" required></textarea>
+
+        <label>Profile Picture</label>
+        <input name="photo" type="file" accept="image/*" required />
+        <small>Choose a small image for faster upload.</small>
+
+        <button type="submit">Create</button>
+      </form>
+
+      <div id="result" class="card" style="display: none"></div>
+    </div>
+
+    <script>
+      const form = document.getElementById("profileForm");
+      const result = document.getElementById("result");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        result.style.display = "none";
+        result.innerHTML = "";
+
+        const fd = new FormData(form);
+
+        // Step 1: upload image
+        const uploadRes = await fetch("/api/upload", {
+          method: "POST",
+          body: fd,
+        });
+
+        if (!uploadRes.ok) {
+          const t = await uploadRes.text();
+          alert("Upload failed: " + t);
+          return;
+        }
+
+        const uploadData = await uploadRes.json(); // { imageUrl }
+
+        // Step 2: create profile (send JSON)
+        const profilePayload = {
+          name: fd.get("name"),
+          age: Number(fd.get("age")),
+          bio: fd.get("bio"),
+          imageUrl: uploadData.imageUrl,
+        };
+
+        const createRes = await fetch("/api/profiles", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(profilePayload),
+        });
+
+        if (!createRes.ok) {
+          const t = await createRes.text();
+          alert("Create profile failed: " + t);
+          return;
+        }
+
+        const created = await createRes.json(); // { id, ... }
+
+        result.style.display = "block";
+        result.innerHTML = `
+        <h3>Profile created!</h3>
+        <p><b>ID:</b> ${created.id}</p>
+        <p><a href="/profile/${created.id}">Open Profile Page</a></p>
+      `;
+
+        form.reset();
+      });
+    </script>
+  </body>
+</html>
